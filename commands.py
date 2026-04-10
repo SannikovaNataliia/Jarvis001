@@ -5,11 +5,14 @@ from datetime import datetime
 import sys
 from calendar_helper import find_current_or_next_event
 from teams_links import open_teams_for_subject
+from music_library import update_music_library, get_random_track
 
 CHROME_PATH = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 CHROME_PROFILE = "Profile 1"
 TEAMS_PATH = r"C:\Users\User\AppData\Local\Microsoft\WindowsApps\ms-teams.exe"
 DISCORD_PATH = r"C:\Users\User\AppData\Local\Discord\app-1.0.9232\Discord.exe"
+BRAVE_PATH = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+BRAVE_USER_DATA = r"C:\Users\User\AppData\Local\BraveSoftware\Brave-Browser\User Data"
 
 def open_chrome():
     subprocess.Popen([CHROME_PATH, f"--profile-directory={CHROME_PROFILE}"])
@@ -65,7 +68,32 @@ They are expected to reunite and resume group activities in 2025."""
 def tell_me_about_bts():
     return BTS_RESPONSE
 
+
+def play_youtube_music():
+    try:
+        track = get_random_track()
+        if not track:
+            return False, "Music library is empty. Say update music first."
+
+        subprocess.run(["taskkill", "/f", "/im", "brave.exe"], capture_output=True)
+        time.sleep(1.5)
+
+        subprocess.Popen([
+            BRAVE_PATH,
+            "--profile-directory=Profile 1",
+            f"--user-data-dir={BRAVE_USER_DATA}",
+            track["url"],
+        ])
+
+        print(f"🎵 Playing: {track['title']}")
+        return True, f"Playing {track['title']}"
+    except Exception as e:
+        return False, f"Could not start music: {e}"
+
 COMMANDS = {
+    "update music": update_music_library,
+    "update library": update_music_library,
+    "play music": play_youtube_music,
     "open chrome": open_chrome,
     "open browser": open_chrome,
     "open teams": open_teams,
@@ -75,17 +103,20 @@ COMMANDS = {
     "start setup": startup_setup,
     "startup": startup_setup,
     "morning setup": startup_setup,
-
-    "open discord": open_discord,
-    "discord": open_discord,    
+    "discord": open_discord,
+    "music": play_youtube_music,
 }
+print(f"DEBUG COMMANDS keys: {list(COMMANDS.keys())}")
 
 def handle_command(text):
     text_lower = text.lower()
+    print(f"DEBUG handle_command: '{text_lower}'")
     for keyword, action in COMMANDS.items():
         if keyword in text_lower:
+            print(f"DEBUG matched: '{keyword}'")
             result = action()
             if isinstance(result, tuple):
                 return result  # (success, message)
             return True, "Done!"
+    print(f"DEBUG no match found")
     return False, None
