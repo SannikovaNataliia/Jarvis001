@@ -9,7 +9,10 @@ import openwakeword
 from openwakeword.model import Model
 import time
 import warnings
-from kokoro_onnx import Kokoro
+import edge_tts
+import soundfile as sf
+import asyncio
+import tempfile
 from commands import handle_command, good_morning, startup_setup, open_chrome, open_discord, tell_me_about_bts
 from router import route_request, groq_answer, groq_wrap, claude_web_search, claude_answer
 import threading
@@ -24,8 +27,7 @@ load_dotenv()
 API_KEY = os.getenv("ANTHROPIC_API_KEY")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-print("Loading Kokoro...")
-kokoro = Kokoro("kokoro-v1.0.onnx", "voices-v1.0.bin")
+VOICE = "en-US-EricNeural"
 
 print("Loading wake word model...")
 openwakeword.utils.download_models()
@@ -183,11 +185,18 @@ Rules:
 
 
 def speak_simple(text):
-    clean_text = text.replace("##", "").replace("**", "").replace("*", "").strip()
-    print(f"Jarvis: {clean_text}")
-    samples, sample_rate = kokoro.create(clean_text, voice="am_onyx", speed=1.0, lang="en-us")
-    sd.play(samples, sample_rate)
-    sd.wait()
+    clean = text.replace("##", "").replace("**", "").replace("*", "").strip()
+    print(f"Jarvis: {clean}")
+    async def _speak():
+        communicate = edge_tts.Communicate(clean, VOICE)
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            tmp_path = f.name
+        await communicate.save(tmp_path)
+        data, sr = sf.read(tmp_path)
+        sd.play(data, sr)
+        sd.wait()
+        os.remove(tmp_path)
+    asyncio.run(_speak())
 
 
 def speak(text):
@@ -203,7 +212,15 @@ def speak(text):
     interrupted = [False]
 
     def generate(sentence):
-        return kokoro.create(sentence, voice="am_onyx", speed=1.0, lang="en-us")
+        async def _gen():
+            communicate = edge_tts.Communicate(sentence, VOICE)
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+                tmp_path = f.name
+            await communicate.save(tmp_path)
+            data, sr = sf.read(tmp_path)
+            os.remove(tmp_path)
+            return data, sr
+        return asyncio.run(_gen())
 
     def monitor_interrupt():
         pa = pyaudio.PyAudio()
