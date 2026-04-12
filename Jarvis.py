@@ -1,4 +1,5 @@
 import whisper
+import re
 import sounddevice as sd
 import scipy.io.wavfile as wav
 import anthropic
@@ -54,7 +55,18 @@ def get_microphone_device():
     return None
 
 
+def play_beep():
+    sr, data = wav.read(r"C:\Jarvis\beep.wav")
+    if data.ndim == 2:
+        data = data.mean(axis=1).astype(np.float32) / 32768.0
+    else:
+        data = data.astype(np.float32) / 32768.0
+    with sd.OutputStream(samplerate=sr, channels=1) as stream:
+        stream.write(data)
+
+
 def record_audio(seconds=5, samplerate=16000):
+    play_beep()
     device = get_microphone_device()
     print("🎤 Speak now...")
     audio = sd.rec(int(seconds * samplerate), samplerate=samplerate, channels=1, dtype='int16', device=device)
@@ -121,7 +133,7 @@ Rules:
 def speak_simple(text):
     clean_text = text.replace("##", "").replace("**", "").replace("*", "").strip()
     print(f"Jarvis: {clean_text}")
-    samples, sample_rate = kokoro.create(clean_text, voice="am_echo", speed=1.0, lang="en-us")
+    samples, sample_rate = kokoro.create(clean_text, voice="am_onyx", speed=1.0, lang="en-us")
     sd.play(samples, sample_rate)
     sd.wait()
 
@@ -139,7 +151,7 @@ def speak(text):
     interrupted = [False]
 
     def generate(sentence):
-        return kokoro.create(sentence, voice="am_echo", speed=1.0, lang="en-us")
+        return kokoro.create(sentence, voice="am_onyx", speed=1.0, lang="en-us")
 
     def monitor_interrupt():
         pa = pyaudio.PyAudio()
@@ -317,7 +329,13 @@ def main():
     speak_simple("Jarvis is online and ready.")
     while True:
         listen_for_wakeword()
-        run_conversation()
+        try:
+            run_conversation()
+        except SystemExit:
+            sys.exit()
+        except Exception as e:
+            print(f"run_conversation error: {e}")
+            continue
 
 
 if __name__ == "__main__":
