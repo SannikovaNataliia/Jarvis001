@@ -1,4 +1,3 @@
-import whisper
 import re
 import sounddevice as sd
 import scipy.io.wavfile as wav
@@ -9,7 +8,6 @@ import pyaudio
 import openwakeword
 from openwakeword.model import Model
 import time
-import torch
 import warnings
 from kokoro_onnx import Kokoro
 from commands import handle_command, good_morning, startup_setup, open_chrome, open_discord, tell_me_about_bts
@@ -17,17 +15,14 @@ from router import route_request, groq_answer, groq_wrap, claude_web_search, cla
 import threading
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from groq import Groq
 from dotenv import load_dotenv
 
 warnings.filterwarnings("ignore")
 load_dotenv()
 
 API_KEY = os.getenv("ANTHROPIC_API_KEY")
-
-print("Loading Whisper...")
-device = "cuda" if torch.cuda.is_available() else "cpu"
-whisper_model = whisper.load_model("base", device=device)
-print(f"Whisper running on: {device}")
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 print("Loading Kokoro...")
 kokoro = Kokoro("kokoro-v1.0.onnx", "voices-v1.0.bin")
@@ -82,8 +77,14 @@ def record_audio(seconds=5, samplerate=16000):
 
 
 def transcribe():
-    result = whisper_model.transcribe("input.wav", language="en")
-    return result["text"].strip()
+    with open("input.wav", "rb") as f:
+        transcription = groq_client.audio.transcriptions.create(
+            file=("input.wav", f.read()),
+            model="whisper-large-v3-turbo",
+            language="en",
+            response_format="text"
+        )
+    return transcription.strip()
 
 
 def is_farewell(text):
