@@ -1,0 +1,25 @@
+{
+  "name": "Nata",
+  "location": "Novyi Rozdil, Lviv Oblast, Ukraine",
+  "timezone": "Europe/Kyiv",
+  "university": true,
+  "interests": [
+    "K-pop",
+    "BTS",
+    "gaming"
+  ],
+  "apps": [
+    "Discord",
+    "Teams",
+    "Brave",
+    "Claude"
+  ],
+  "preferences": [
+    "concise answers",
+    "English by default"
+  ],
+  "facts": [
+    "User has a cat",
+    "User's cat is named Ron"
+  ]
+}
