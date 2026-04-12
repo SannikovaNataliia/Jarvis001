@@ -20,6 +20,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from groq import Groq
 from dotenv import load_dotenv
+from pynput import keyboard
 
 warnings.filterwarnings("ignore")
 load_dotenv()
@@ -42,6 +43,21 @@ STOP_WORDS = ["stop", "shut up", "quiet", "enough"]
 SHUTDOWN_WORDS = ["shutdown jarvis", "turn off jarvis", "close jarvis", "goodbye jarvis", "go offline"]
 INTERRUPT_THRESHOLD = 800
 recording_active = False
+alt_pressed = False
+
+def on_press(key):
+    global alt_pressed
+    if key in (keyboard.Key.alt_l, keyboard.Key.alt_r):
+        alt_pressed = True
+
+def on_release(key):
+    global alt_pressed
+    if key in (keyboard.Key.alt_l, keyboard.Key.alt_r):
+        alt_pressed = False
+
+keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+keyboard_listener.daemon = True
+keyboard_listener.start()
 
 
 def get_microphone_device():
@@ -233,6 +249,9 @@ def speak(text):
                     break
                 if recording_active:
                     break
+                if alt_pressed:
+                    time.sleep(0.05)
+                    continue
                 if np.abs(chunk).mean() > INTERRUPT_THRESHOLD:
                     if not interrupted[0]:
                         print("⚡ Interrupted!")
