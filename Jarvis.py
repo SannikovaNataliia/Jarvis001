@@ -404,6 +404,7 @@ def run_conversation():
         print("🧠 Thinking...")
         reply, has_question, is_command = process_with_router(text)
         interrupted = speak(reply) if reply else False
+        print(f"DEBUG has_question: {has_question}")
 
         if interrupted:
             result = handle_after_speak(interrupted, text)

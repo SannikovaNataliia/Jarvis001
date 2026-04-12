@@ -56,18 +56,16 @@ Analyze the user request and return ONLY a JSON object, no other text.
 JSON structure:
 {
   "action": "answer" | "web_search" | "command" | "ask_claude",
-  "text": "your answer here (only for action=answer)",
-  "query": "search query (only for action=web_search)",
-  "command": "command name (only for action=command)",
-  "reason": "why claude needed (only for action=ask_claude)",
   "has_question": true | false
 }
 
-Rules:
-- "answer": you can answer directly from your knowledge. Set has_question=true if your answer contains a question.
-- "web_search": request needs current/real-time info (weather, news, scores, prices, current events)
-- "command": request is clearly one of these commands: play_music, update_music, open_chrome, open_discord, open_teams, open_claude, good_morning, stop, go_offline
-- "ask_claude": request is complex, sensitive, requires deep reasoning or long analysis
+Rules — be conservative, prefer "answer" when possible:
+- "answer": use this for conversation, personal sharing, general knowledge, opinions, advice, facts you know, follow-up questions, anything you can handle without live data
+- "web_search": ONLY for requests explicitly needing current/live data: today's weather, live scores, breaking news, current prices, real-time info
+- "command": ONLY these exact commands: play_music, update_music, open_chrome, open_discord, open_teams, open_claude, good_morning, stop, go_offline
+- "ask_claude": ONLY for very complex technical analysis, coding help, or long document writing
+
+When in doubt — use "answer". Most casual conversation should be "answer".
 
 Always respond with valid JSON only. No markdown, no explanation.'''
 
@@ -97,13 +95,26 @@ def route_request(text):
 
 def extract_and_save_facts(user_text, assistant_text):
     try:
+        with open(r"C:\Jarvis\user_memory.json", "r", encoding="utf-8") as f:
+            memory = json.load(f)
+
+        existing_facts = memory.get("facts", [])
+
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "Extract any new personal facts about the user from this conversation. Return ONLY a JSON array of short fact strings, or empty array [] if nothing new. Example: [\"Nata likes coffee\", \"Nata has a cat\"]. No explanation, just JSON."},
-                {"role": "user", "content": f"User said: {user_text}\nAssistant replied: {assistant_text}"}
+                {"role": "system", "content": """Extract new personal facts about the user from this conversation.
+Rules:
+- Only extract specific, concrete, useful facts
+- Skip vague or obvious things
+- Skip duplicates or things already covered by existing facts
+- Merge/update if new info contradicts existing fact
+- Return ONLY a JSON object: {"add": ["new fact"], "remove": ["old fact to replace"]}
+- Return {"add": [], "remove": []} if nothing new
+No explanation, just JSON."""},
+                {"role": "user", "content": f"Existing facts: {json.dumps(existing_facts)}\n\nUser said: {user_text}\nAssistant replied: {assistant_text}"}
             ],
-            max_tokens=200,
+            max_tokens=300,
             temperature=0.1
         )
         raw = response.choices[0].message.content.strip()
@@ -111,9 +122,20 @@ def extract_and_save_facts(user_text, assistant_text):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
-        facts = json.loads(raw.strip())
-        for fact in facts:
-            add_to_memory(fact)
+        result = json.loads(raw.strip())
+
+        facts = existing_facts.copy()
+        for old in result.get("remove", []):
+            if old in facts:
+                facts.remove(old)
+        for new in result.get("add", []):
+            if new not in facts:
+                facts.append(new)
+
+        memory["facts"] = facts
+        with open(r"C:\Jarvis\user_memory.json", "w", encoding="utf-8") as f:
+            json.dump(memory, f, ensure_ascii=False, indent=2)
+
     except Exception as e:
         print(f"fact extraction error: {e}")
 
@@ -131,13 +153,14 @@ def groq_answer(question, history=[]):
             max_tokens=512,
             temperature=0.7
         )
+        print(f"🤖 Groq (Llama 70B)")
         result = response.choices[0].message.content.strip()
         threading.Thread(
             target=extract_and_save_facts,
             args=(question, result),
             daemon=True
         ).start()
-        has_q = "?" in result
+        has_q = result.strip().endswith("?") or "?" in result[-50:]
         return {"text": result, "has_question": has_q}
     except Exception as e:
         print(f"groq_answer error: {e}")
@@ -156,7 +179,7 @@ def groq_wrap(raw_answer, original_question):
             temperature=0.5
         )
         result = response.choices[0].message.content.strip()
-        has_q = "?" in result
+        has_q = result.strip().endswith("?") or result.count("?") > 0
         return {"text": result, "has_question": has_q}
     except Exception as e:
         print(f"groq_wrap error: {e}")
@@ -165,6 +188,7 @@ def groq_wrap(raw_answer, original_question):
 
 def claude_web_search(question):
     try:
+        print(f"🔍 Claude Haiku (web search)")
         response = claude_client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=512,
@@ -185,6 +209,7 @@ def claude_web_search(question):
 
 def claude_answer(question, history=[]):
     try:
+        print(f"💎 Claude Sonnet")
         messages = history + [{"role": "user", "content": question}]
         response = claude_client.messages.create(
             model="claude-sonnet-4-20250514",
