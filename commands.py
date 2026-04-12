@@ -1,5 +1,6 @@
 import subprocess
 import time
+import psutil
 import os
 from datetime import datetime
 import sys
@@ -69,21 +70,31 @@ def tell_me_about_bts():
     return BTS_RESPONSE
 
 
+def is_brave_running():
+    for proc in psutil.process_iter(['name']):
+        try:
+            if proc.info['name'] == 'brave.exe':
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return False
+
+
 def play_youtube_music():
     try:
         track = get_random_track()
         if not track:
             return False, "Music library is empty. Say update music first."
 
-        subprocess.run(["taskkill", "/f", "/im", "brave.exe"], capture_output=True)
-        time.sleep(1.5)
-
-        subprocess.Popen([
-            BRAVE_PATH,
-            "--profile-directory=Profile 1",
-            f"--user-data-dir={BRAVE_USER_DATA}",
-            track["url"],
-        ])
+        if is_brave_running():
+            subprocess.Popen([BRAVE_PATH, track["url"]])
+        else:
+            subprocess.Popen([
+                BRAVE_PATH,
+                "--profile-directory=Profile 1",
+                f"--user-data-dir={BRAVE_USER_DATA}",
+                track["url"],
+            ])
 
         print(f"🎵 Playing: {track['title']}")
         return True, f"Playing {track['title']}"
