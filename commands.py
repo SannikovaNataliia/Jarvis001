@@ -1,6 +1,10 @@
 import subprocess
 import time
 import psutil
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import os
 from datetime import datetime
 import sys
@@ -86,6 +90,55 @@ def play_youtube_music():
         if not track:
             return False, "Music library is empty. Say update music first."
 
+        options = Options()
+        options.binary_location = BRAVE_PATH
+        options.debugger_address = "127.0.0.1:9222"
+
+        try:
+            driver = webdriver.Chrome(
+                service=Service(ChromeDriverManager().install()),
+                options=options
+            )
+        except Exception:
+            # Brave not running with debug port — launch it
+            subprocess.Popen([
+                BRAVE_PATH,
+                "--remote-debugging-port=9222",
+                f"--user-data-dir={BRAVE_USER_DATA}",
+                "--profile-directory=Profile 1",
+            ])
+            time.sleep(3)
+            driver = webdriver.Chrome(
+                service=Service(ChromeDriverManager().install()),
+                options=options
+            )
+
+        # find existing YouTube Music tab
+        yt_tab = None
+        for handle in driver.window_handles:
+            driver.switch_to.window(handle)
+            if "music.youtube.com" in driver.current_url:
+                yt_tab = handle
+                break
+
+        if yt_tab:
+            driver.get(track["url"])
+        else:
+            driver.switch_to.new_window("tab")
+            driver.get(track["url"])
+
+        print(f"🎵 Playing: {track['title']}")
+        return True, f"Playing {track['title']}"
+    except Exception as e:
+        print(f"play_youtube_music error: {e}")
+        return False, f"Could not start music: {e}"
+
+def fast_play_music():
+    try:
+        track = get_random_track()
+        if not track:
+            return False, "Music library is empty. Say update music first."
+
         if is_brave_running():
             subprocess.Popen([BRAVE_PATH, track["url"]])
         else:
@@ -115,6 +168,8 @@ COMMANDS = {
     "startup": startup_setup,
     "morning setup": startup_setup,
     "discord": open_discord,
+    "fast music": fast_play_music,
+    "quick music": fast_play_music,
     "music": play_youtube_music,
 }
 print(f"DEBUG COMMANDS keys: {list(COMMANDS.keys())}")
