@@ -13,6 +13,7 @@ import torch
 import warnings
 from kokoro_onnx import Kokoro
 from commands import handle_command, good_morning, startup_setup, open_chrome, open_discord, tell_me_about_bts
+from router import route_request, groq_answer, groq_wrap, claude_web_search, claude_answer
 import threading
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -37,11 +38,13 @@ oww_model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
 
 client = anthropic.Anthropic(api_key=API_KEY)
 history = []
+router_history = []
 
 FAREWELL_WORDS = ["thank you", "thanks", "bye", "that's all", "no thanks", "nothing", "okay thank you"]
 STOP_WORDS = ["stop", "shut up", "quiet", "enough"]
 SHUTDOWN_WORDS = ["shutdown jarvis", "turn off jarvis", "close jarvis", "goodbye jarvis", "go offline"]
 INTERRUPT_THRESHOLD = 800
+recording_active = False
 
 
 def get_microphone_device():
@@ -66,11 +69,14 @@ def play_beep():
 
 
 def record_audio(seconds=5, samplerate=16000):
+    global recording_active
     play_beep()
+    recording_active = True
     device = get_microphone_device()
     print("🎤 Speak now...")
     audio = sd.rec(int(seconds * samplerate), samplerate=samplerate, channels=1, dtype='int16', device=device)
     sd.wait()
+    recording_active = False
     print("✅ Recorded")
     wav.write("input.wav", samplerate, audio)
 
@@ -94,6 +100,51 @@ def is_stop(text):
 
 def is_shutdown(text):
     return any(word in text.lower() for word in SHUTDOWN_WORDS)
+
+
+def process_with_router(text):
+    global router_history
+
+    route = route_request(text)
+    action = route.get("action")
+
+    if action == "command":
+        success, message = handle_command(text)
+        if success:
+            return message, False, True
+        return groq_answer(text, router_history)["text"], False, True
+
+    elif action == "answer":
+        result = groq_answer(text, router_history)
+        router_history.append({"role": "user", "content": text})
+        router_history.append({"role": "assistant", "content": result["text"]})
+        if len(router_history) > 20:
+            router_history = router_history[-20:]
+        return result["text"], result["has_question"], False
+
+    elif action == "web_search":
+        raw = claude_web_search(text)
+        wrapped = groq_wrap(raw["text"], text)
+        router_history.append({"role": "user", "content": text})
+        router_history.append({"role": "assistant", "content": wrapped["text"]})
+        if len(router_history) > 20:
+            router_history = router_history[-20:]
+        return wrapped["text"], wrapped["has_question"], False
+
+    elif action == "ask_claude":
+        speak_simple("This might need Claude. Should I ask?")
+        play_beep()
+        record_audio(seconds=3)
+        answer = transcribe()
+        if any(w in answer.lower() for w in ["yes", "sure", "yeah", "yep", "do it"]):
+            result = claude_answer(text, router_history)
+            router_history.append({"role": "user", "content": text})
+            router_history.append({"role": "assistant", "content": result["text"]})
+            return result["text"], result["has_question"], False
+        else:
+            return "Got it, skipping Claude.", False, False
+
+    return groq_answer(text, router_history)["text"], False, False
 
 
 def ask_claude(text):
@@ -161,6 +212,8 @@ def speak(text):
             try:
                 chunk = np.frombuffer(stream.read(1024, exception_on_overflow=False), dtype=np.int16)
                 if interrupted[0]:
+                    break
+                if recording_active:
                     break
                 if np.abs(chunk).mean() > INTERRUPT_THRESHOLD:
                     if not interrupted[0]:
@@ -262,15 +315,14 @@ def handle_after_speak(interrupted, text):
 
 def run_conversation():
     speak_simple("Yes, I'm listening.")
+    record_audio(seconds=5)
 
     while True:
-        record_audio(seconds=5)
-
         print("🔍 Transcribing...")
         text = transcribe()
         print(f"You: {text}")
 
-        if is_empty(text):
+        if is_empty(text) or len(text.strip().split()) < 2:
             speak_simple("Going to sleep. Say Hey Jarvis to wake me up.")
             return
 
@@ -285,6 +337,7 @@ def run_conversation():
         if is_stop(text):
             speak_simple("Okay.")
             speak_simple("Anything else?")
+            record_audio(seconds=7)
             continue
 
         if "good morning" in text.lower():
@@ -298,6 +351,7 @@ def run_conversation():
                 t.start()
                 speak_simple(f"Good morning Nata! It's {time_str}, enjoy your weekend!")
             speak_simple("Anything else?")
+            record_audio(seconds=7)
             continue
 
         if "tell me about bts" in text.lower() or "bts" in text.lower():
@@ -307,21 +361,21 @@ def run_conversation():
             if result == "sleep":
                 return
             speak_simple("Anything else?")
-            continue
-
-        success, message = handle_command(text)
-        if success:
-            speak_simple(message)
-            speak_simple("Anything else?")
+            record_audio(seconds=7)
             continue
 
         print("🧠 Thinking...")
-        reply = ask_claude(text)
-        interrupted = speak(reply)
-        result = handle_after_speak(interrupted, text)
-        if result == "sleep":
-            return
-        speak_simple("Anything else?")
+        reply, has_question, is_command = process_with_router(text)
+        interrupted = speak(reply) if reply else False
+
+        if interrupted:
+            result = handle_after_speak(interrupted, text)
+            if result == "sleep":
+                return
+
+        if not has_question:
+            speak_simple("Anything else?")
+        record_audio(seconds=7)
 
 
 def main():
@@ -335,6 +389,8 @@ def main():
             sys.exit()
         except Exception as e:
             print(f"run_conversation error: {e}")
+            import traceback
+            traceback.print_exc()
             continue
 
 
