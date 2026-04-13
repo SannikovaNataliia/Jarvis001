@@ -81,17 +81,58 @@ def play_beep():
         stream.write(data)
 
 
-def record_audio(seconds=5, samplerate=16000):
+def record_audio(seconds=7, samplerate=16000):
     global recording_active
     play_beep()
     recording_active = True
-    device = get_microphone_device()
+    device_idx = get_microphone_device()
+    chunk_size = 1024
+    pa = pyaudio.PyAudio()
+    stream = pa.open(
+        rate=samplerate, channels=1, format=pyaudio.paInt16,
+        input=True, input_device_index=device_idx,
+        frames_per_buffer=chunk_size
+    )
+
+    frames = []
+    speaking_started = False
+    silent_chunks = 0
+    max_wait_chunks = int(seconds * samplerate / chunk_size)  # wait for speech start
+    silence_chunks_needed = int(1.5 * samplerate / chunk_size)  # silence after speech
+    voice_threshold = 300
+
     print("🎤 Speak now...")
-    audio = sd.rec(int(seconds * samplerate), samplerate=samplerate, channels=1, dtype='int16', device=device)
-    sd.wait()
+
+    # Phase 1: wait for speech to start (max 7 sec)
+    for _ in range(max_wait_chunks):
+        chunk = stream.read(chunk_size, exception_on_overflow=False)
+        frames.append(chunk)
+        amplitude = np.abs(np.frombuffer(chunk, dtype=np.int16)).mean()
+        if amplitude > voice_threshold:
+            speaking_started = True
+            break
+
+    # Phase 2: record until 1.5s silence (no time limit)
+    if speaking_started:
+        while True:
+            chunk = stream.read(chunk_size, exception_on_overflow=False)
+            frames.append(chunk)
+            amplitude = np.abs(np.frombuffer(chunk, dtype=np.int16)).mean()
+            if amplitude < voice_threshold:
+                silent_chunks += 1
+                if silent_chunks >= silence_chunks_needed:
+                    break
+            else:
+                silent_chunks = 0
+
+    stream.stop_stream()
+    stream.close()
+    pa.terminate()
+
     recording_active = False
     print("✅ Recorded")
-    wav.write("input.wav", samplerate, audio)
+    audio_data = np.frombuffer(b''.join(frames), dtype=np.int16)
+    wav.write("input.wav", samplerate, audio_data)
 
 
 def transcribe():
@@ -401,19 +442,23 @@ def run_conversation():
             record_audio(seconds=7)
             continue
 
-        print("🧠 Thinking...")
-        reply, has_question, is_command = process_with_router(text)
-        interrupted = speak(reply) if reply else False
-        print(f"DEBUG has_question: {has_question}")
-
-        if interrupted:
-            result = handle_after_speak(interrupted, text)
-            if result == "sleep":
-                return
-
-        if not has_question:
-            speak_simple("Anything else?")
-        record_audio(seconds=7)
+        try:
+            print("🧠 Thinking...")
+            reply, has_question, is_command = process_with_router(text)
+            interrupted = speak(reply) if reply else False
+            print(f"DEBUG has_question: {has_question}")
+            if interrupted:
+                result = handle_after_speak(interrupted, text)
+                if result == "sleep":
+                    return
+            elif not has_question:
+                speak_simple("Anything else?")
+            record_audio()
+        except Exception as e:
+            print(f"router error: {e}")
+            import traceback
+            traceback.print_exc()
+            record_audio()
 
 
 def main():
