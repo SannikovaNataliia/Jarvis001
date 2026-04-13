@@ -8,9 +8,9 @@ MEMORY_FILE = r"C:\Jarvis\memory\system_apps.json"
 SKIP_EXE_FOLDERS = [
     "msys64", "Windows Kits", "Microsoft SDKs", "Microsoft SQL Server",
     "Common Files", "Windows NT", "Microsoft.NET", "WindowsPowerShell",
-    "Microsoft Visual Studio", "dotnet", "dotnet\\sdk", "Extensions\\dump",
+    "dotnet", "dotnet\\sdk", "Extensions\\dump",
     "TestHostNetFramework", "DotnetTools", "AppHostTemplate",
-    "Git", "Microsoft Office", "RStudio", "Windows Defender",
+    "Git", "Microsoft Office", "Windows Defender",
     "Windows Media Player", "Internet Explorer", "IIS", "IIS Express",
     "Windows Mail", "Windows Photo Viewer", "WindowsInstallationAssistant",
     "Microsoft Update Health Tools", "HP", "Intel", "Microsoft OneDrive"
@@ -27,7 +27,9 @@ SKIP_EXE_NAMES = [
     "appcmd", "iisexpress", "iisexpressadmincmd", "iisexpresstray",
     "openconsole", "vsce-sign", "code-tunnel", "rg",
     "qtwebengineprocess", "adsso", "senddmp", "vlc-cache-gen",
-    "rar", "unrar", "battle.net launcher", "battlenet.overlay.runtime"
+    "rar", "unrar", "battle.net launcher", "battlenet.overlay.runtime",
+    "rsession", "rsouce", "rsbridge", "crashpad",
+    "devenv.resources", "blend", "vsdebugger"
 ]
 
 def get_apps_from_registry():
@@ -60,6 +62,8 @@ def scan_executables():
         r"C:\Program Files",
         r"C:\Program Files (x86)",
         r"D:\Programs",
+        r"C:\Program Files\RStudio",
+        r"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE",
     ]
     exes = {}
     for base_path in scan_paths:

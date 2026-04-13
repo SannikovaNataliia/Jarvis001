@@ -182,6 +182,13 @@ def process_with_router(text):
             router_history = router_history[-20:]
         return result["text"], result["has_question"], False
 
+    elif action == "open_app":
+        print(f"🤖 Groq (router) → 🖥️ Opening app via system scan")
+        app_name = route.get("app_name", "")
+        from router import find_and_open_app
+        success, message = find_and_open_app(app_name)
+        return message, False, True
+
     elif action == "web_search":
         raw = claude_web_search(text)
         wrapped = groq_wrap(raw["text"], text)
@@ -385,8 +392,8 @@ def handle_after_speak(interrupted, text):
             return "continue"
 
         print("🧠 Thinking...")
-        reply = ask_claude(text)
-        speak(reply)
+        reply, has_question, is_command = process_with_router(text)
+        interrupted2 = speak(reply) if reply else False
 
     return "continue"
 

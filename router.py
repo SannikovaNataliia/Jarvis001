@@ -7,9 +7,9 @@ import anthropic
 
 
 def load_personality():
-    with open(r"C:\Jarvis\personality.json", "r", encoding="utf-8") as f:
+    with open(r"C:\Jarvis\memory\personality.json", "r", encoding="utf-8") as f:
         p = json.load(f)
-    with open(r"C:\Jarvis\user_memory.json", "r", encoding="utf-8") as f:
+    with open(r"C:\Jarvis\memory\user_memory.json", "r", encoding="utf-8") as f:
         m = json.load(f)
 
     facts_str = ""
@@ -35,11 +35,11 @@ User info:
 
 def add_to_memory(fact):
     try:
-        with open(r"C:\Jarvis\user_memory.json", "r", encoding="utf-8") as f:
+        with open(r"C:\Jarvis\memory\user_memory.json", "r", encoding="utf-8") as f:
             memory = json.load(f)
         if fact not in memory["facts"]:
             memory["facts"].append(fact)
-            with open(r"C:\Jarvis\user_memory.json", "w", encoding="utf-8") as f:
+            with open(r"C:\Jarvis\memory\user_memory.json", "w", encoding="utf-8") as f:
                 json.dump(memory, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"memory update error: {e}")
@@ -55,17 +55,23 @@ Analyze the user request and return ONLY a JSON object, no other text.
 
 JSON structure:
 {
-  "action": "answer" | "web_search" | "command" | "ask_claude",
-  "has_question": true | false
+  "action": "answer" | "web_search" | "command" | "open_app" | "ask_claude",
+  "has_question": true | false,
+  "app_name": "app name to search (only for open_app)",
+  "text": "answer text (only for answer)"
 }
 
 Rules — be conservative, prefer "answer" when possible:
-- "answer": use this for conversation, personal sharing, general knowledge, opinions, advice, facts you know, follow-up questions, anything you can handle without live data
-- "web_search": ONLY for requests explicitly needing current/live data: today's weather, live scores, breaking news, current prices, real-time info
-- "command": ONLY these exact commands: play_music, update_music, open_chrome, open_discord, open_teams, open_claude, good_morning, stop, go_offline
-- "ask_claude": ONLY for very complex technical analysis, coding help, or long document writing
+- "answer": conversation, general knowledge, facts, advice, follow-ups
+- "web_search": ONLY for current/live data: today weather, live scores, breaking news, prices
+- "command": ONLY these exact: play_music, update_music, open_chrome, open_discord, open_teams, open_claude, good_morning, stop, go_offline
+- "open_app": user wants to open/launch an application that is NOT in the command list above. Return the app name as "app_name"
+- "ask_claude": ONLY for very complex technical analysis or long document writing
 
-When in doubt — use "answer". Most casual conversation should be "answer".
+Examples:
+"open telegram" → {"action": "open_app", "app_name": "telegram", "has_question": false}
+"launch steam" → {"action": "open_app", "app_name": "steam", "has_question": false}
+"open vlc" → {"action": "open_app", "app_name": "vlc", "has_question": false}
 
 Always respond with valid JSON only. No markdown, no explanation.'''
 
@@ -93,9 +99,58 @@ def route_request(text):
         return {"action": "ask_claude", "has_question": False, "reason": "router failed"}
 
 
+PRIORITY_EXES = {
+    "visualstudio": "devenv",
+    "vscode": "code",
+    "rstudio": "rstudio",
+    "wordpad": "wordpad",
+}
+
+def find_and_open_app(app_name):
+    import subprocess, os, glob
+    try:
+        with open(r"C:\Jarvis\memory\system_apps.json", "r", encoding="utf-8") as f:
+            apps = json.load(f)
+
+        name_lower = app_name.lower().strip().replace(" ", "")
+        executables = apps.get("executables", {})
+
+        print(f"🔎 Looking for: {app_name}")
+
+        # check priority exe names first
+        for app_key, exe_name in PRIORITY_EXES.items():
+            if app_key in name_lower or name_lower in app_key:
+                if exe_name in executables:
+                    path = executables[exe_name]
+                    print(f"✅ Found: {path}")
+                    subprocess.Popen([path])
+                    return True, f"Opening {app_name}."
+
+        # exact match
+        if name_lower in executables:
+            path = executables[name_lower]
+            print(f"✅ Found: {path}")
+            subprocess.Popen([path])
+            return True, f"Opening {app_name}."
+
+        # normalized match
+        for key, path in executables.items():
+            key_normalized = key.lower().replace(" ", "").replace("-", "")
+            if key_normalized == name_lower or key_normalized.startswith(name_lower) or name_lower.startswith(key_normalized):
+                if len(key) > 2:
+                    print(f"✅ Found: {path}")
+                    subprocess.Popen([path])
+                    return True, f"Opening {app_name}."
+
+        return False, f"I couldn't find {app_name} on your system."
+    except Exception as e:
+        print(f"find_and_open_app error: {e}")
+        return False, f"Could not open {app_name}."
+
+
 def extract_and_save_facts(user_text, assistant_text):
     try:
-        with open(r"C:\Jarvis\user_memory.json", "r", encoding="utf-8") as f:
+        with open(r"C:\Jarvis\memory\user_memory.json", "r", encoding="utf-8") as f:
             memory = json.load(f)
 
         existing_facts = memory.get("facts", [])
@@ -133,7 +188,7 @@ No explanation, just JSON."""},
                 facts.append(new)
 
         memory["facts"] = facts
-        with open(r"C:\Jarvis\user_memory.json", "w", encoding="utf-8") as f:
+        with open(r"C:\Jarvis\memory\user_memory.json", "w", encoding="utf-8") as f:
             json.dump(memory, f, ensure_ascii=False, indent=2)
 
     except Exception as e:
