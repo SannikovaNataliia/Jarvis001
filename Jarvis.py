@@ -189,6 +189,13 @@ def process_with_router(text):
         success, message = find_and_open_app(app_name)
         return message, False, True
 
+    elif action == "close_app":
+        print(f"🤖 Groq (router) → ❌ Closing app")
+        app_name = route.get("app_name", "")
+        from router import find_and_close_app
+        success, message = find_and_close_app(app_name)
+        return message, False, True
+
     elif action == "web_search":
         raw = claude_web_search(text)
         wrapped = groq_wrap(raw["text"], text)

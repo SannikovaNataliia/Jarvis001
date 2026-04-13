@@ -55,9 +55,9 @@ Analyze the user request and return ONLY a JSON object, no other text.
 
 JSON structure:
 {
-  "action": "answer" | "web_search" | "command" | "open_app" | "ask_claude",
+  "action": "answer" | "web_search" | "command" | "open_app" | "close_app" | "ask_claude",
   "has_question": true | false,
-  "app_name": "app name to search (only for open_app)",
+  "app_name": "app name to search (only for open_app and close_app)",
   "text": "answer text (only for answer)"
 }
 
@@ -66,12 +66,14 @@ Rules — be conservative, prefer "answer" when possible:
 - "web_search": ONLY for current/live data: today weather, live scores, breaking news, prices
 - "command": ONLY these exact: play_music, update_music, open_chrome, open_discord, open_teams, open_claude, good_morning, stop, go_offline
 - "open_app": user wants to open/launch an application that is NOT in the command list above. Return the app name as "app_name"
+- "close_app": user wants to close/quit/exit an application. Return app name as "app_name"
 - "ask_claude": ONLY for very complex technical analysis or long document writing
 
 Examples:
 "open telegram" → {"action": "open_app", "app_name": "telegram", "has_question": false}
 "launch steam" → {"action": "open_app", "app_name": "steam", "has_question": false}
 "open vlc" → {"action": "open_app", "app_name": "vlc", "has_question": false}
+"close telegram" → {"action": "close_app", "app_name": "telegram", "has_question": false}
 
 Always respond with valid JSON only. No markdown, no explanation.'''
 
@@ -146,6 +148,27 @@ def find_and_open_app(app_name):
     except Exception as e:
         print(f"find_and_open_app error: {e}")
         return False, f"Could not open {app_name}."
+
+
+def find_and_close_app(app_name):
+    import psutil
+    name_lower = app_name.lower().replace(" ", "")
+    found = False
+    try:
+        for proc in psutil.process_iter(['name', 'exe']):
+            try:
+                proc_name = proc.info['name'].lower().replace(".exe", "").replace(" ", "")
+                if name_lower in proc_name or proc_name in name_lower:
+                    if len(proc_name) > 2:
+                        proc.terminate()
+                        found = True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        if found:
+            return True, f"Closed {app_name}."
+        return False, f"{app_name} is not running."
+    except Exception as e:
+        return False, f"Could not close {app_name}: {e}"
 
 
 def extract_and_save_facts(user_text, assistant_text):
