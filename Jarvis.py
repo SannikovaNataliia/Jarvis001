@@ -169,9 +169,11 @@ def process_with_router(text):
     action = route.get("action")
 
     if action == "command":
+        from router import groq_wrap
         success, message = handle_command(text)
-        if success:
-            return message, False, True
+        if success and message:
+            result = groq_wrap(message, text)
+            return result["text"], result["has_question"], True
         return groq_answer(text, router_history)["text"], False, True
 
     elif action == "answer":
@@ -185,16 +187,18 @@ def process_with_router(text):
     elif action == "open_app":
         print(f"🤖 Groq (router) → 🖥️ Opening app via system scan")
         app_name = route.get("app_name", "")
-        from router import find_and_open_app
+        from router import find_and_open_app, groq_wrap
         success, message = find_and_open_app(app_name)
-        return message, False, True
+        result = groq_wrap(message, text)
+        return result["text"], result["has_question"], True
 
     elif action == "close_app":
         print(f"🤖 Groq (router) → ❌ Closing app")
         app_name = route.get("app_name", "")
-        from router import find_and_close_app
+        from router import find_and_close_app, groq_wrap
         success, message = find_and_close_app(app_name)
-        return message, False, True
+        result = groq_wrap(message, text)
+        return result["text"], result["has_question"], True
 
     elif action == "web_search":
         raw = claude_web_search(text)
