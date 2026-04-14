@@ -271,7 +271,13 @@ def speak_simple(text):
         sd.play(data, sr)
         sd.wait()
         os.remove(tmp_path)
-    asyncio.run(_speak())
+    for attempt in range(3):
+        try:
+            asyncio.run(_speak())
+            return
+        except Exception as e:
+            print(f"TTS error (attempt {attempt+1}): {e}")
+            time.sleep(1)
 
 
 def speak(text):

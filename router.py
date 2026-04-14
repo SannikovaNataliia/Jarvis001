@@ -90,12 +90,16 @@ def route_request(text):
             temperature=0.1
         )
         raw = response.choices[0].message.content.strip()
-        # strip markdown if present
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
-        return json.loads(raw.strip())
+        raw = raw.strip()
+        # take only first JSON object
+        if raw.count('{') > 1:
+            end = raw.index('}') + 1
+            raw = raw[:end]
+        return json.loads(raw)
     except Exception as e:
         print(f"router error: {e}")
         return {"action": "ask_claude", "has_question": False, "reason": "router failed"}
