@@ -165,64 +165,70 @@ def is_shutdown(text):
 def process_with_router(text):
     global router_history
 
-    route = route_request(text)
-    action = route.get("action")
+    routes = route_request(text)
 
-    if action == "command":
-        from router import groq_wrap
-        success, message = handle_command(text)
-        if success and message:
-            result = groq_wrap(message, text)
-            return result["text"], result["has_question"], True
-        return groq_answer(text, router_history)["text"], False, True
+    raw_messages = []
 
-    elif action == "answer":
-        result = groq_answer(text, router_history)
-        router_history.append({"role": "user", "content": text})
-        router_history.append({"role": "assistant", "content": result["text"]})
-        if len(router_history) > 20:
-            router_history = router_history[-20:]
-        return result["text"], result["has_question"], False
+    for route in routes:
+        action = route.get("action")
 
-    elif action == "open_app":
-        print(f"🤖 Groq (router) → 🖥️ Opening app via system scan")
-        app_name = route.get("app_name", "")
-        from router import find_and_open_app, groq_wrap
-        success, message = find_and_open_app(app_name)
-        result = groq_wrap(message, text)
-        return result["text"], result["has_question"], True
+        if action == "command":
+            success, message = handle_command(text)
+            if success and message:
+                raw_messages.append(message)
 
-    elif action == "close_app":
-        print(f"🤖 Groq (router) → ❌ Closing app")
-        app_name = route.get("app_name", "")
-        from router import find_and_close_app, groq_wrap
-        success, message = find_and_close_app(app_name)
-        result = groq_wrap(message, text)
-        return result["text"], result["has_question"], True
+        elif action == "open_app":
+            print(f"🤖 Groq (router) → 🖥️ Opening app via system scan")
+            app_name = route.get("app_name", "")
+            from router import find_and_open_app
+            success, message = find_and_open_app(app_name)
+            raw_messages.append(message)
 
-    elif action == "web_search":
-        raw = claude_web_search(text)
-        wrapped = groq_wrap(raw["text"], text)
-        router_history.append({"role": "user", "content": text})
-        router_history.append({"role": "assistant", "content": wrapped["text"]})
-        if len(router_history) > 20:
-            router_history = router_history[-20:]
-        return wrapped["text"], wrapped["has_question"], False
+        elif action == "close_app":
+            print(f"🤖 Groq (router) → ❌ Closing app")
+            app_name = route.get("app_name", "")
+            from router import find_and_close_app
+            success, message = find_and_close_app(app_name)
+            raw_messages.append(message)
 
-    elif action == "ask_claude":
-        speak_simple("This might need Claude. Should I ask?")
-        play_beep()
-        record_audio(seconds=3)
-        answer = transcribe()
-        if any(w in answer.lower() for w in ["yes", "sure", "yeah", "yep", "do it"]):
-            result = claude_answer(text, router_history)
+        elif action == "answer":
+            result = groq_answer(text, router_history)
             router_history.append({"role": "user", "content": text})
             router_history.append({"role": "assistant", "content": result["text"]})
+            if len(router_history) > 20:
+                router_history = router_history[-20:]
             return result["text"], result["has_question"], False
-        else:
-            return "Got it, skipping Claude.", False, False
 
-    return groq_answer(text, router_history)["text"], False, False
+        elif action == "web_search":
+            raw = claude_web_search(text)
+            wrapped = groq_wrap(raw["text"], text)
+            router_history.append({"role": "user", "content": text})
+            router_history.append({"role": "assistant", "content": wrapped["text"]})
+            if len(router_history) > 20:
+                router_history = router_history[-20:]
+            return wrapped["text"], wrapped["has_question"], False
+
+        elif action == "ask_claude":
+            speak_simple("This might need Claude. Should I ask?")
+            play_beep()
+            record_audio(seconds=3)
+            answer = transcribe()
+            if any(w in answer.lower() for w in ["yes", "sure", "yeah", "yep", "do it"]):
+                result = claude_answer(text, router_history)
+                router_history.append({"role": "user", "content": text})
+                router_history.append({"role": "assistant", "content": result["text"]})
+                return result["text"], result["has_question"], False
+            else:
+                return "Got it, skipping Claude.", False, False
+
+    # wrap all collected messages once
+    if raw_messages:
+        combined = ". ".join(raw_messages)
+        from router import groq_wrap
+        result = groq_wrap(combined, text)
+        return result["text"], result["has_question"], True
+
+    return "Done.", False, True
 
 
 def ask_claude(text):

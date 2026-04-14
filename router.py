@@ -51,15 +51,13 @@ groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 claude_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 ROUTER_SYSTEM_PROMPT = '''You are a routing assistant for a voice assistant named Jarvis.
-Analyze the user request and return ONLY a JSON object, no other text.
+Analyze the user request and return ONLY a JSON object or JSON array, no other text.
 
-JSON structure:
-{
-  "action": "answer" | "web_search" | "command" | "open_app" | "close_app" | "ask_claude",
-  "has_question": true | false,
-  "app_name": "app name to search (only for open_app and close_app)",
-  "text": "answer text (only for answer)"
-}
+For a single action, return a JSON object:
+{"action": "answer" | "web_search" | "command" | "open_app" | "close_app" | "ask_claude", "has_question": true | false, "app_name": "app name (only for open_app and close_app)"}
+
+For multiple actions, return a JSON array:
+[{"action": "open_app", "app_name": "chrome", "has_question": false}, {"action": "open_app", "app_name": "telegram", "has_question": false}]
 
 Rules — be conservative, prefer "answer" when possible:
 - "answer": conversation, general knowledge, facts, advice, follow-ups
@@ -71,8 +69,7 @@ Rules — be conservative, prefer "answer" when possible:
 
 Examples:
 "open telegram" → {"action": "open_app", "app_name": "telegram", "has_question": false}
-"launch steam" → {"action": "open_app", "app_name": "steam", "has_question": false}
-"open vlc" → {"action": "open_app", "app_name": "vlc", "has_question": false}
+"open chrome and telegram" → [{"action": "open_app", "app_name": "chrome", "has_question": false}, {"action": "open_app", "app_name": "telegram", "has_question": false}]
 "close telegram" → {"action": "close_app", "app_name": "telegram", "has_question": false}
 
 Always respond with valid JSON only. No markdown, no explanation.'''
@@ -95,14 +92,14 @@ def route_request(text):
             if raw.startswith("json"):
                 raw = raw[4:]
         raw = raw.strip()
-        # take only first JSON object
-        if raw.count('{') > 1:
-            end = raw.index('}') + 1
-            raw = raw[:end]
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        # always return a list
+        if isinstance(parsed, dict):
+            return [parsed]
+        return parsed
     except Exception as e:
         print(f"router error: {e}")
-        return {"action": "ask_claude", "has_question": False, "reason": "router failed"}
+        return [{"action": "ask_claude", "has_question": False}]
 
 
 PRIORITY_EXES = {
