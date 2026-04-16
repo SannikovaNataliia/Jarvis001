@@ -54,7 +54,7 @@ ROUTER_SYSTEM_PROMPT = '''You are a routing assistant for a voice assistant name
 Analyze the user request and return ONLY a JSON object or JSON array, no other text.
 
 For a single action, return a JSON object:
-{"action": "answer" | "web_search" | "command" | "open_app" | "close_app" | "ask_claude", "has_question": true | false, "app_name": "app name (only for open_app and close_app)"}
+{"action": "answer" | "web_search" | "command" | "open_app" | "close_app" | "browser_search" | "ask_claude", "has_question": true | false, "app_name": "app name (only for open_app and close_app)", "query": "search query (only for browser_search)"}
 
 For multiple actions, return a JSON array:
 [{"action": "open_app", "app_name": "chrome", "has_question": false}, {"action": "open_app", "app_name": "telegram", "has_question": false}]
@@ -65,12 +65,16 @@ Rules — be conservative, prefer "answer" when possible:
 - "command": ONLY these exact: play_music, update_music, open_chrome, open_discord, open_teams, open_claude, good_morning, stop, go_offline
 - "open_app": user wants to open/launch an application that is NOT in the command list above. Return the app name as "app_name"
 - "close_app": user wants to close/quit/exit an application. Return app name as "app_name"
+- "browser_search": user wants to find and open something online (video, website, article, song). Return search query as "query"
 - "ask_claude": ONLY for very complex technical analysis or long document writing
 
 Examples:
 "open telegram" → {"action": "open_app", "app_name": "telegram", "has_question": false}
 "open chrome and telegram" → [{"action": "open_app", "app_name": "chrome", "has_question": false}, {"action": "open_app", "app_name": "telegram", "has_question": false}]
 "close telegram" → {"action": "close_app", "app_name": "telegram", "has_question": false}
+"find and play new BTS MV" → {"action": "browser_search", "query": "BTS new MV", "has_question": false}
+"open weather forecast for Lviv" → {"action": "browser_search", "query": "Lviv weather forecast", "has_question": false}
+"find minecraft gameplay video" → {"action": "browser_search", "query": "minecraft gameplay video", "has_question": false}
 
 Always respond with valid JSON only. No markdown, no explanation.'''
 
@@ -170,6 +174,37 @@ def find_and_close_app(app_name):
         return False, f"{app_name} is not running."
     except Exception as e:
         return False, f"Could not close {app_name}: {e}"
+
+
+def browser_find_and_open(query):
+    try:
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=200,
+            system="You are a URL finder. Given a search query, return ONLY the best direct URL to open. No explanation, just the URL. For videos prefer YouTube. For music prefer YouTube Music.",
+            messages=[{"role": "user", "content": f"Find the best URL for: {query}"}],
+            tools=[{"type": "web_search_20250305", "name": "web_search"}]
+        )
+        url = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                url += block.text.strip()
+
+        # якщо не знайшов URL — робимо YouTube пошук
+        if not url or "http" not in url:
+            url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+
+        print(f"🌐 Opening: {url}")
+
+        from browser_agent import open_url, is_brave_debug_available
+        if not is_brave_debug_available():
+            return False, "Brave is not running in debug mode. Please open it via brave_debug.bat"
+
+        success, result = open_url(url)
+        return success, url
+    except Exception as e:
+        print(f"browser_find_and_open error: {e}")
+        return False, str(e)
 
 
 def extract_and_save_facts(user_text, assistant_text):

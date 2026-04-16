@@ -208,6 +208,16 @@ def process_with_router(text):
                 router_history = router_history[-20:]
             return wrapped["text"], wrapped["has_question"], False
 
+        elif action == "browser_search":
+            print(f"🤖 Groq (router) → 🌐 Browser search")
+            query = route.get("query", "")
+            from router import browser_find_and_open, groq_wrap
+            success, result = browser_find_and_open(query)
+            message = f"Opening {query} in browser." if success else result
+            wrapped = groq_wrap(message, text)
+            raw_messages.append(wrapped["text"])
+            has_question = wrapped["has_question"]
+
         elif action == "ask_claude":
             speak_simple("This might need Claude. Should I ask?")
             play_beep()
@@ -462,7 +472,7 @@ def run_conversation():
             record_audio(seconds=7)
             continue
 
-        if "tell me about bts" in text.lower() or "bts" in text.lower():
+        if "tell me about bts" in text.lower():
             reply = tell_me_about_bts()
             interrupted = speak(reply)
             result = handle_after_speak(interrupted, text)
