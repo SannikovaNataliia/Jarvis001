@@ -4,8 +4,9 @@ import threading
 from groq import Groq
 from dotenv import load_dotenv
 import anthropic
-from memory_manager import load_personality, extract_and_save_facts
-from app_manager import find_and_open_app, find_and_close_app
+from modules.memory_manager import load_personality, extract_and_save_facts
+from modules.app_manager import find_and_open_app, find_and_close_app
+from modules.browser_agent import open_url, is_brave_debug_available
 
 load_dotenv()
 
@@ -89,7 +90,6 @@ def browser_find_and_open(query):
 
         print(f"🌐 Opening: {url}")
 
-        from browser_agent import open_url, is_brave_debug_available
         if not is_brave_debug_available():
             return False, "Brave is not running in debug mode. Please open it via brave_debug.bat"
 

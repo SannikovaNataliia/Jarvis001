@@ -8,9 +8,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 import os
 from datetime import datetime
 import sys
-from calendar_helper import find_current_or_next_event
-from teams_links import open_teams_for_subject
-from music_library import update_music_library, get_random_track
+from modules.calendar_helper import find_current_or_next_event
+from modules.teams_links import open_teams_for_subject
+from modules.music_library import update_music_library, get_random_track
 from config import BRAVE_PATH, BRAVE_USER_DATA, CHROME_PATH, CHROME_PROFILE, TEAMS_PATH, DISCORD_PATH
 
 def open_chrome():
