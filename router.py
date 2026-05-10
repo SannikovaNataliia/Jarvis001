@@ -4,46 +4,8 @@ import threading
 from groq import Groq
 from dotenv import load_dotenv
 import anthropic
-from config import USER_MEMORY_FILE, PERSONALITY_FILE, SYSTEM_APPS_FILE
-
-
-def load_personality():
-    with open(PERSONALITY_FILE, "r", encoding="utf-8") as f:
-        p = json.load(f)
-    with open(USER_MEMORY_FILE, "r", encoding="utf-8") as f:
-        m = json.load(f)
-
-    facts_str = ""
-    if m.get("facts"):
-        facts_str = "\nLearned facts:\n" + "\n".join(f"- {fact}" for fact in m["facts"])
-
-    return f"""You are Jarvis, a personal AI assistant.
-
-Core traits: {p["core_traits"]}
-
-Speech rules:
-{chr(10).join(f"- {rule}" for rule in p["speech_rules"])}
-
-User info:
-- Name: {m["name"]}
-- Location: {m["location"]}
-- Timezone: {m["timezone"]}
-- Interests: {", ".join(m["interests"])}
-- Apps used: {", ".join(m["apps"])}
-- Preferences: {", ".join(m["preferences"])}
-{facts_str}"""
-
-
-def add_to_memory(fact):
-    try:
-        with open(USER_MEMORY_FILE, "r", encoding="utf-8") as f:
-            memory = json.load(f)
-        if fact not in memory["facts"]:
-            memory["facts"].append(fact)
-            with open(USER_MEMORY_FILE, "w", encoding="utf-8") as f:
-                json.dump(memory, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"memory update error: {e}")
+from memory_manager import load_personality, extract_and_save_facts
+from app_manager import find_and_open_app, find_and_close_app
 
 load_dotenv()
 
@@ -107,76 +69,6 @@ def route_request(text):
         return [{"action": "ask_claude", "has_question": False}]
 
 
-PRIORITY_EXES = {
-    "visualstudio": "devenv",
-    "vscode": "code",
-    "rstudio": "rstudio",
-    "wordpad": "wordpad",
-}
-
-def find_and_open_app(app_name):
-    import subprocess, os, glob
-    try:
-        with open(SYSTEM_APPS_FILE, "r", encoding="utf-8") as f:
-            apps = json.load(f)
-
-        name_lower = app_name.lower().strip().replace(" ", "")
-        executables = apps.get("executables", {})
-
-        print(f"🔎 Looking for: {app_name}")
-
-        # check priority exe names first
-        for app_key, exe_name in PRIORITY_EXES.items():
-            if app_key in name_lower or name_lower in app_key:
-                if exe_name in executables:
-                    path = executables[exe_name]
-                    print(f"✅ Found: {path}")
-                    subprocess.Popen([path])
-                    return True, f"Opening {app_name}."
-
-        # exact match
-        if name_lower in executables:
-            path = executables[name_lower]
-            print(f"✅ Found: {path}")
-            subprocess.Popen([path])
-            return True, f"Opening {app_name}."
-
-        # normalized match
-        for key, path in executables.items():
-            key_normalized = key.lower().replace(" ", "").replace("-", "")
-            if key_normalized == name_lower or key_normalized.startswith(name_lower) or name_lower.startswith(key_normalized):
-                if len(key) > 2:
-                    print(f"✅ Found: {path}")
-                    subprocess.Popen([path])
-                    return True, f"Opening {app_name}."
-
-        return False, f"I couldn't find {app_name} on your system."
-    except Exception as e:
-        print(f"find_and_open_app error: {e}")
-        return False, f"Could not open {app_name}."
-
-
-def find_and_close_app(app_name):
-    import psutil
-    name_lower = app_name.lower().replace(" ", "")
-    found = False
-    try:
-        for proc in psutil.process_iter(['name', 'exe']):
-            try:
-                proc_name = proc.info['name'].lower().replace(".exe", "").replace(" ", "")
-                if name_lower in proc_name or proc_name in name_lower:
-                    if len(proc_name) > 2:
-                        proc.terminate()
-                        found = True
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-        if found:
-            return True, f"Closed {app_name}."
-        return False, f"{app_name} is not running."
-    except Exception as e:
-        return False, f"Could not close {app_name}: {e}"
-
-
 def browser_find_and_open(query):
     try:
         response = claude_client.messages.create(
@@ -206,53 +98,6 @@ def browser_find_and_open(query):
     except Exception as e:
         print(f"browser_find_and_open error: {e}")
         return False, str(e)
-
-
-def extract_and_save_facts(user_text, assistant_text):
-    try:
-        with open(USER_MEMORY_FILE, "r", encoding="utf-8") as f:
-            memory = json.load(f)
-
-        existing_facts = memory.get("facts", [])
-
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": """Extract new personal facts about the user from this conversation.
-Rules:
-- Only extract specific, concrete, useful facts
-- Skip vague or obvious things
-- Skip duplicates or things already covered by existing facts
-- Merge/update if new info contradicts existing fact
-- Return ONLY a JSON object: {"add": ["new fact"], "remove": ["old fact to replace"]}
-- Return {"add": [], "remove": []} if nothing new
-No explanation, just JSON."""},
-                {"role": "user", "content": f"Existing facts: {json.dumps(existing_facts)}\n\nUser said: {user_text}\nAssistant replied: {assistant_text}"}
-            ],
-            max_tokens=300,
-            temperature=0.1
-        )
-        raw = response.choices[0].message.content.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        result = json.loads(raw.strip())
-
-        facts = existing_facts.copy()
-        for old in result.get("remove", []):
-            if old in facts:
-                facts.remove(old)
-        for new in result.get("add", []):
-            if new not in facts:
-                facts.append(new)
-
-        memory["facts"] = facts
-        with open(USER_MEMORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(memory, f, ensure_ascii=False, indent=2)
-
-    except Exception as e:
-        print(f"fact extraction error: {e}")
 
 
 def groq_answer(question, history=[]):

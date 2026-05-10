@@ -9,7 +9,7 @@ USER_MEMORY_FILE = os.path.join(MEMORY_DIR, "user_memory.json")
 PERSONALITY_FILE = os.path.join(MEMORY_DIR, "personality.json")
 SYSTEM_APPS_FILE = os.path.join(MEMORY_DIR, "system_apps.json")
 SYSTEM_INFO_FILE = os.path.join(MEMORY_DIR, "system_info.json")
-MUSIC_LIBRARY_FILE = os.path.join(BASE_DIR, "music_library.json")
+MUSIC_LIBRARY_FILE = os.path.join(BASE_DIR, "data", "music_library.json")
 
 # Browser paths
 BRAVE_PATH = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
@@ -24,7 +24,7 @@ TEAMS_PATH = r"C:\Users\User\AppData\Local\Microsoft\WindowsApps\ms-teams.exe"
 DISCORD_PATH = r"C:\Users\User\AppData\Local\Discord\app-1.0.9232\Discord.exe"
 
 # Audio
-BEEP_FILE = os.path.join(BASE_DIR, "beep.wav")
+BEEP_FILE = os.path.join(BASE_DIR, "audio", "beep.wav")
 INPUT_WAV = os.path.join(BASE_DIR, "input.wav")
 VOICE = "en-US-EricNeural"
 

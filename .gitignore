@@ -11,3 +11,5 @@ Jarvis.lnk
 client_secret_*.json
 youtube_token.json
 memory/
+audio/
+data/
