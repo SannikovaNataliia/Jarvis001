@@ -5,8 +5,7 @@ import time
 import websocket
 from pywinauto import Application
 from pywinauto import keyboard
-
-BRAVE_DEBUG_URL = "http://localhost:9222"
+from config import BRAVE_DEBUG_URL, BRAVE_PATH, BRAVE_USER_DATA, BRAVE_PROFILE, SYSTEM_INFO_FILE
 
 def focus_brave():
     try:
@@ -192,7 +191,7 @@ def handle_autofill(ws, input_selector, site_key=None):
         # try to load preferred account from memory
         preferred = None
         try:
-            with open(r"C:\Jarvis\memory\system_info.json", "r", encoding="utf-8") as f:
+            with open(SYSTEM_INFO_FILE, "r", encoding="utf-8") as f:
                 sys_info = json_module.load(f)
             if site_key and site_key in sys_info.get("autofill", {}):
                 preferred = sys_info["autofill"][site_key]

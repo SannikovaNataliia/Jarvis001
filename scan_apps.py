@@ -2,8 +2,9 @@ import os
 import json
 import glob
 import winreg
+from config import SYSTEM_APPS_FILE, BRAVE_PATH, MEMORY_DIR
 
-MEMORY_FILE = r"C:\Jarvis\memory\system_apps.json"
+MEMORY_FILE = SYSTEM_APPS_FILE
 
 SKIP_EXE_FOLDERS = [
     "msys64", "Windows Kits", "Microsoft SDKs", "Microsoft SQL Server",
@@ -92,7 +93,7 @@ def scan_and_save():
         "executables": exe_apps
     }
 
-    os.makedirs(r"C:\Jarvis\memory", exist_ok=True)
+    os.makedirs(MEMORY_DIR, exist_ok=True)
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 

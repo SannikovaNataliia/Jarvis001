@@ -4,12 +4,13 @@ import threading
 from groq import Groq
 from dotenv import load_dotenv
 import anthropic
+from config import USER_MEMORY_FILE, PERSONALITY_FILE, SYSTEM_APPS_FILE
 
 
 def load_personality():
-    with open(r"C:\Jarvis\memory\personality.json", "r", encoding="utf-8") as f:
+    with open(PERSONALITY_FILE, "r", encoding="utf-8") as f:
         p = json.load(f)
-    with open(r"C:\Jarvis\memory\user_memory.json", "r", encoding="utf-8") as f:
+    with open(USER_MEMORY_FILE, "r", encoding="utf-8") as f:
         m = json.load(f)
 
     facts_str = ""
@@ -35,11 +36,11 @@ User info:
 
 def add_to_memory(fact):
     try:
-        with open(r"C:\Jarvis\memory\user_memory.json", "r", encoding="utf-8") as f:
+        with open(USER_MEMORY_FILE, "r", encoding="utf-8") as f:
             memory = json.load(f)
         if fact not in memory["facts"]:
             memory["facts"].append(fact)
-            with open(r"C:\Jarvis\memory\user_memory.json", "w", encoding="utf-8") as f:
+            with open(USER_MEMORY_FILE, "w", encoding="utf-8") as f:
                 json.dump(memory, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"memory update error: {e}")
@@ -116,7 +117,7 @@ PRIORITY_EXES = {
 def find_and_open_app(app_name):
     import subprocess, os, glob
     try:
-        with open(r"C:\Jarvis\memory\system_apps.json", "r", encoding="utf-8") as f:
+        with open(SYSTEM_APPS_FILE, "r", encoding="utf-8") as f:
             apps = json.load(f)
 
         name_lower = app_name.lower().strip().replace(" ", "")
@@ -209,7 +210,7 @@ def browser_find_and_open(query):
 
 def extract_and_save_facts(user_text, assistant_text):
     try:
-        with open(r"C:\Jarvis\memory\user_memory.json", "r", encoding="utf-8") as f:
+        with open(USER_MEMORY_FILE, "r", encoding="utf-8") as f:
             memory = json.load(f)
 
         existing_facts = memory.get("facts", [])
@@ -247,7 +248,7 @@ No explanation, just JSON."""},
                 facts.append(new)
 
         memory["facts"] = facts
-        with open(r"C:\Jarvis\memory\user_memory.json", "w", encoding="utf-8") as f:
+        with open(USER_MEMORY_FILE, "w", encoding="utf-8") as f:
             json.dump(memory, f, ensure_ascii=False, indent=2)
 
     except Exception as e:

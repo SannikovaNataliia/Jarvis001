@@ -1,8 +1,7 @@
 import subprocess
+from config import TEAMS_PATH, TEAMS_TENANT_ID
 
-TEAMS_PATH = r"C:\Users\User\AppData\Local\Microsoft\WindowsApps\ms-teams.exe"
-
-TENANT_ID = "1c2aa41e-5b92-4906-827e-0c10f9d73859"
+TENANT_ID = TEAMS_TENANT_ID
 
 SUBJECTS = [
     {

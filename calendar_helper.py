@@ -4,10 +4,10 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from config import CREDENTIALS_FILE, CALENDAR_TOKEN_FILE
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
-CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), "credentials.json")
-TOKEN_FILE = os.path.join(os.path.dirname(__file__), "token.json")
+TOKEN_FILE = CALENDAR_TOKEN_FILE
 UNIVERSITY_CALENDAR_NAME = "UNIVERSITY"
 
 

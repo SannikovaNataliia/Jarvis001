@@ -15,6 +15,7 @@ import asyncio
 import tempfile
 from commands import handle_command, good_morning, startup_setup, open_chrome, open_discord, tell_me_about_bts
 from router import route_request, groq_answer, groq_wrap, claude_web_search, claude_answer
+from config import VOICE, BEEP_FILE, INPUT_WAV, INTERRUPT_THRESHOLD, VOICE_THRESHOLD, SILENCE_DURATION, MAX_WAIT_SECONDS
 import threading
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -28,8 +29,6 @@ load_dotenv()
 API_KEY = os.getenv("ANTHROPIC_API_KEY")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-VOICE = "en-US-EricNeural"
-
 print("Loading wake word model...")
 openwakeword.utils.download_models()
 oww_model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
@@ -41,7 +40,6 @@ router_history = []
 FAREWELL_WORDS = ["thank you", "thanks", "bye", "that's all", "no thanks", "nothing", "okay thank you"]
 STOP_WORDS = ["stop", "shut up", "quiet", "enough"]
 SHUTDOWN_WORDS = ["shutdown jarvis", "turn off jarvis", "close jarvis", "goodbye jarvis", "go offline"]
-INTERRUPT_THRESHOLD = 800
 recording_active = False
 alt_pressed = False
 
@@ -72,7 +70,7 @@ def get_microphone_device():
 
 
 def play_beep():
-    sr, data = wav.read(r"C:\Jarvis\beep.wav")
+    sr, data = wav.read(BEEP_FILE)
     if data.ndim == 2:
         data = data.mean(axis=1).astype(np.float32) / 32768.0
     else:
@@ -81,7 +79,7 @@ def play_beep():
         stream.write(data)
 
 
-def record_audio(seconds=7, samplerate=16000):
+def record_audio(seconds=MAX_WAIT_SECONDS, samplerate=16000):
     global recording_active
     play_beep()
     recording_active = True
@@ -98,8 +96,8 @@ def record_audio(seconds=7, samplerate=16000):
     speaking_started = False
     silent_chunks = 0
     max_wait_chunks = int(seconds * samplerate / chunk_size)  # wait for speech start
-    silence_chunks_needed = int(1.5 * samplerate / chunk_size)  # silence after speech
-    voice_threshold = 300
+    silence_chunks_needed = int(SILENCE_DURATION * samplerate / chunk_size)  # silence after speech
+    voice_threshold = VOICE_THRESHOLD
 
     print("🎤 Speak now...")
 
@@ -132,13 +130,13 @@ def record_audio(seconds=7, samplerate=16000):
     recording_active = False
     print("✅ Recorded")
     audio_data = np.frombuffer(b''.join(frames), dtype=np.int16)
-    wav.write("input.wav", samplerate, audio_data)
+    wav.write(INPUT_WAV, samplerate, audio_data)
 
 
 def transcribe():
-    with open("input.wav", "rb") as f:
+    with open(INPUT_WAV, "rb") as f:
         transcription = groq_client.audio.transcriptions.create(
-            file=("input.wav", f.read()),
+            file=(INPUT_WAV, f.read()),
             model="whisper-large-v3-turbo",
             language="en",
             response_format="text"
@@ -455,7 +453,7 @@ def run_conversation():
         if is_stop(text):
             speak_simple("Okay.")
             speak_simple("Anything else?")
-            record_audio(seconds=7)
+            record_audio(seconds=MAX_WAIT_SECONDS)
             continue
 
         if "good morning" in text.lower():
@@ -469,7 +467,7 @@ def run_conversation():
                 t.start()
                 speak_simple(f"Good morning Nata! It's {time_str}, enjoy your weekend!")
             speak_simple("Anything else?")
-            record_audio(seconds=7)
+            record_audio(seconds=MAX_WAIT_SECONDS)
             continue
 
         if "tell me about bts" in text.lower():
@@ -479,7 +477,7 @@ def run_conversation():
             if result == "sleep":
                 return
             speak_simple("Anything else?")
-            record_audio(seconds=7)
+            record_audio(seconds=MAX_WAIT_SECONDS)
             continue
 
         try:

@@ -5,25 +5,22 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from config import MUSIC_LIBRARY_FILE, YOUTUBE_CLIENT_SECRET, YOUTUBE_TOKEN_FILE, YOUTUBE_PLAYLIST_ID
 
-CLIENT_SECRET_FILE = r"C:\Jarvis\client_secret_88513857411-ct835f2pr2eomji31th8kddntt9uk339.apps.googleusercontent.com.json"
-PLAYLIST_ID = "PLusZ2cIJXtuWbBWNZPDPu4UpeqzljtiWR"
-LIBRARY_FILE = r"C:\Jarvis\music_library.json"
 SCOPES = ["https://www.googleapis.com/auth/youtube.readonly"]
-TOKEN_FILE = r"C:\Jarvis\youtube_token.json"
 
 
 def _get_service():
     creds = None
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    if os.path.exists(YOUTUBE_TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(YOUTUBE_TOKEN_FILE, SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET_FILE, SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(YOUTUBE_CLIENT_SECRET, SCOPES)
             creds = flow.run_local_server(port=0)
-        with open(TOKEN_FILE, "w") as f:
+        with open(YOUTUBE_TOKEN_FILE, "w") as f:
             f.write(creds.to_json())
     return build("youtube", "v3", credentials=creds)
 
@@ -36,7 +33,7 @@ def update_music_library():
 
         while True:
             response = service.playlistItems().list(
-                playlistId=PLAYLIST_ID,
+                playlistId=YOUTUBE_PLAYLIST_ID,
                 part="snippet",
                 maxResults=50,
                 pageToken=next_page_token,
@@ -55,7 +52,7 @@ def update_music_library():
             if not next_page_token:
                 break
 
-        with open(LIBRARY_FILE, "w", encoding="utf-8") as f:
+        with open(MUSIC_LIBRARY_FILE, "w", encoding="utf-8") as f:
             json.dump(tracks, f, ensure_ascii=False, indent=2)
 
         return True, f"Library updated: {len(tracks)} tracks"
@@ -65,7 +62,7 @@ def update_music_library():
 
 def get_random_track():
     try:
-        with open(LIBRARY_FILE, "r", encoding="utf-8") as f:
+        with open(MUSIC_LIBRARY_FILE, "r", encoding="utf-8") as f:
             tracks = json.load(f)
         if not tracks:
             return None

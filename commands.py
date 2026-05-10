@@ -11,13 +11,7 @@ import sys
 from calendar_helper import find_current_or_next_event
 from teams_links import open_teams_for_subject
 from music_library import update_music_library, get_random_track
-
-CHROME_PATH = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-CHROME_PROFILE = "Profile 1"
-TEAMS_PATH = r"C:\Users\User\AppData\Local\Microsoft\WindowsApps\ms-teams.exe"
-DISCORD_PATH = r"C:\Users\User\AppData\Local\Discord\app-1.0.9232\Discord.exe"
-BRAVE_PATH = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-BRAVE_USER_DATA = r"C:\Users\User\AppData\Local\BraveSoftware\Brave-Browser\User Data"
+from config import BRAVE_PATH, BRAVE_USER_DATA, CHROME_PATH, CHROME_PROFILE, TEAMS_PATH, DISCORD_PATH
 
 def open_chrome():
     subprocess.Popen([CHROME_PATH, f"--profile-directory={CHROME_PROFILE}"])
