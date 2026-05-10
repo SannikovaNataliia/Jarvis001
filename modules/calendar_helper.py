@@ -4,7 +4,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from config import CREDENTIALS_FILE, CALENDAR_TOKEN_FILE
+from core.config import CREDENTIALS_FILE, CALENDAR_TOKEN_FILE
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 TOKEN_FILE = CALENDAR_TOKEN_FILE

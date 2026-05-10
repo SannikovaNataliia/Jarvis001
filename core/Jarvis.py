@@ -13,9 +13,9 @@ import edge_tts
 import soundfile as sf
 import asyncio
 import tempfile
-from commands import handle_command, good_morning, startup_setup, open_chrome, open_discord, tell_me_about_bts
-from router import route_request, groq_answer, groq_wrap, claude_web_search, claude_answer
-from config import VOICE, BEEP_FILE, INPUT_WAV, INTERRUPT_THRESHOLD, VOICE_THRESHOLD, SILENCE_DURATION, MAX_WAIT_SECONDS
+from core.commands import handle_command, good_morning, startup_setup, open_chrome, open_discord, tell_me_about_bts
+from core.router import route_request, groq_answer, groq_wrap, claude_web_search, claude_answer
+from core.config import VOICE, BEEP_FILE, INPUT_WAV, INTERRUPT_THRESHOLD, VOICE_THRESHOLD, SILENCE_DURATION, MAX_WAIT_SECONDS
 import threading
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -177,14 +177,14 @@ def process_with_router(text):
         elif action == "open_app":
             print(f"🤖 Groq (router) → 🖥️ Opening app via system scan")
             app_name = route.get("app_name", "")
-            from router import find_and_open_app
+            from core.router import find_and_open_app
             success, message = find_and_open_app(app_name)
             raw_messages.append(message)
 
         elif action == "close_app":
             print(f"🤖 Groq (router) → ❌ Closing app")
             app_name = route.get("app_name", "")
-            from router import find_and_close_app
+            from core.router import find_and_close_app
             success, message = find_and_close_app(app_name)
             raw_messages.append(message)
 
@@ -208,7 +208,7 @@ def process_with_router(text):
         elif action == "browser_search":
             print(f"🤖 Groq (router) → 🌐 Browser search")
             query = route.get("query", "")
-            from router import browser_find_and_open, groq_wrap
+            from core.router import browser_find_and_open, groq_wrap
             success, result = browser_find_and_open(query)
             message = f"Opening {query} in browser." if success else result
             wrapped = groq_wrap(message, text)
@@ -231,7 +231,7 @@ def process_with_router(text):
     # wrap all collected messages once
     if raw_messages:
         combined = ". ".join(raw_messages)
-        from router import groq_wrap
+        from core.router import groq_wrap
         result = groq_wrap(combined, text)
         return result["text"], result["has_question"], True
 

@@ -5,7 +5,7 @@ import time
 import websocket
 from pywinauto import Application
 from pywinauto import keyboard
-from config import BRAVE_DEBUG_URL, BRAVE_PATH, BRAVE_USER_DATA, BRAVE_PROFILE, SYSTEM_INFO_FILE
+from core.config import BRAVE_DEBUG_URL, BRAVE_PATH, BRAVE_USER_DATA, BRAVE_PROFILE, SYSTEM_INFO_FILE
 
 def focus_brave():
     try:

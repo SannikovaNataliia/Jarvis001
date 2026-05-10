@@ -2,7 +2,7 @@ import os
 import json
 import glob
 import winreg
-from config import SYSTEM_APPS_FILE, BRAVE_PATH, MEMORY_DIR
+from core.config import SYSTEM_APPS_FILE, BRAVE_PATH, MEMORY_DIR
 
 MEMORY_FILE = SYSTEM_APPS_FILE
 

@@ -1,7 +1,7 @@
 import json
 import subprocess
 import psutil
-from config import SYSTEM_APPS_FILE
+from core.config import SYSTEM_APPS_FILE
 
 PRIORITY_EXES = {
     "visualstudio": "devenv",

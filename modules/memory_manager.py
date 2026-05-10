@@ -3,7 +3,7 @@ import os
 import threading
 from groq import Groq
 from dotenv import load_dotenv
-from config import USER_MEMORY_FILE, PERSONALITY_FILE
+from core.config import USER_MEMORY_FILE, PERSONALITY_FILE
 
 load_dotenv()
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))

@@ -11,7 +11,7 @@ import sys
 from modules.calendar_helper import find_current_or_next_event
 from modules.teams_links import open_teams_for_subject
 from modules.music_library import update_music_library, get_random_track
-from config import BRAVE_PATH, BRAVE_USER_DATA, CHROME_PATH, CHROME_PROFILE, TEAMS_PATH, DISCORD_PATH
+from core.config import BRAVE_PATH, BRAVE_USER_DATA, CHROME_PATH, CHROME_PROFILE, TEAMS_PATH, DISCORD_PATH
 
 def open_chrome():
     subprocess.Popen([CHROME_PATH, f"--profile-directory={CHROME_PROFILE}"])

@@ -1,5 +1,5 @@
 import subprocess
-from config import TEAMS_PATH, TEAMS_TENANT_ID
+from core.config import TEAMS_PATH, TEAMS_TENANT_ID
 
 TENANT_ID = TEAMS_TENANT_ID
 
