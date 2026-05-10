@@ -34,7 +34,6 @@ openwakeword.utils.download_models()
 oww_model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
 
 client = anthropic.Anthropic(api_key=API_KEY)
-history = []
 router_history = []
 
 FAREWELL_WORDS = ["thank you", "thanks", "bye", "that's all", "no thanks", "nothing", "okay thank you"]
@@ -237,40 +236,6 @@ def process_with_router(text):
         return result["text"], result["has_question"], True
 
     return "Done.", False, True
-
-
-def ask_claude(text):
-    history.append({"role": "user", "content": text})
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1024,
-        system='''You are a personal assistant named Jarvis.
-
-About the user:
-- Name: Nata
-- Location: Lviv, Ukraine
-- Timezone: Europe/Kyiv (UTC+2 in winter, UTC+3 in summer, DST applies)
-
-Rules:
-- Always reply in the same language the user speaks
-- Use metric system only (Celsius, km, kg)
-- No markdown formatting in spoken responses
-- Keep responses concise by default
-- Give details only when the topic requires it or user asks
-- For weather always use Celsius
-- For time always use 12h format
-''',
-        messages=history,
-        tools=[{"type": "web_search_20250305", "name": "web_search"}]
-    )
-    reply = ""
-    for block in response.content:
-        if hasattr(block, "text"):
-            reply += block.text
-    if not reply:
-        reply = "I searched but couldn't find a clear answer."
-    history.append({"role": "assistant", "content": reply})
-    return reply
 
 
 def speak_simple(text):
